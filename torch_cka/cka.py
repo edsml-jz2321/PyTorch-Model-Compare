@@ -155,12 +155,46 @@ class CKA:
 
         num_batches = min(len(dataloader1), len(dataloader1))
 
-        for (x1, *_), (x2, *_) in tqdm(zip(dataloader1, dataloader2), desc="| Comparing features |", total=num_batches):
+        ############### my changes begin here ##################
+        self.model1.eval()
+        self.model2.eval()      
+        
+        
+        for (batch_x, batch_y, batch_x_mark, batch_y_mark), (batch_x2, batch_y2, batch_x_mark2, batch_y_mark2) in tqdm(zip(dataloader1, dataloader2), desc="| Comparing features |", total=num_batches):
 
             self.model1_features = {}
             self.model2_features = {}
-            _ = self.model1(x1.to(self.device))
-            _ = self.model2(x2.to(self.device))
+
+            batch_x = batch_x.float().to(self.device)
+            batch_y = batch_y.float().to(self.device)
+
+            batch_x_mark = batch_x_mark.float().to(self.device)
+            batch_y_mark = batch_y_mark.float().to(self.device)
+
+            # decoder input
+            dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float()
+            dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float().to(self.device)
+            # encoder - decoder
+            if self.args.use_amp:
+                with torch.cuda.amp.autocast():
+                    if self.args.output_attention:
+                        outputs = self.model1(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
+                        outputs2 = self.model2(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
+                    else:
+                        outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
+                        outputs2 = self.model2(batch_x, batch_x_mark, dec_inp, batch_y_mark)
+            else:
+                if self.args.output_attention:
+                    outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
+                    outputs2 = self.model2(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
+
+                else:
+                    outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)     
+                    outputs2 = self.model2(batch_x, batch_x_mark, dec_inp, batch_y_mark)     
+       
+    
+#             _ = self.model1(x1.to(self.device))
+#             _ = self.model2(x2.to(self.device))
 
             for i, (name1, feat1) in enumerate(self.model1_features.items()):
                 X = feat1.flatten(1)
