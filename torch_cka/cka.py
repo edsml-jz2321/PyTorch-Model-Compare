@@ -180,18 +180,18 @@ class CKA:
             if self.args.use_amp:
                 with torch.cuda.amp.autocast():
                     if self.args.output_attention:
-                        outputs = self.model1(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
+                        outputs1 = self.model1(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
                         outputs2 = self.model2(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
                     else:
-                        outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
+                        outputs1 = self.model1(batch_x, batch_x_mark, dec_inp, batch_y_mark)
                         outputs2 = self.model2(batch_x, batch_x_mark, dec_inp, batch_y_mark)
             else:
                 if self.args.output_attention:
-                    outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
+                    outputs1 = self.model1(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
                     outputs2 = self.model2(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
 
                 else:
-                    outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)     
+                    outputs1 = self.model1(batch_x, batch_x_mark, dec_inp, batch_y_mark)     
                     outputs2 = self.model2(batch_x, batch_x_mark, dec_inp, batch_y_mark)     
        
     
