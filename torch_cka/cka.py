@@ -8,6 +8,43 @@ from typing import List, Dict
 import matplotlib.pyplot as plt
 from .utils import add_colorbar
 
+def flatten_tuple(t):
+    flat_list = []
+    for item in t:
+        if isinstance(item, tuple):
+            flat_list.extend(flatten_tuple(item))
+        elif isinstance(item, list):
+            flat_list.extend(flatten_list(item))
+        else:
+            flat_list.append(item)
+    return flat_list
+
+
+def flatten_list(l):
+    flat_list = []
+    for item in l:
+        if isinstance(item, list):
+            flat_list.extend(flatten_list(item))
+        else:
+            flat_list.append(item)
+    return flat_list
+
+def remove_none(t):
+    return [x for x in t if x is not None]
+
+def ls_of_tensors_to_1_dim_tensor(old_ls):
+    new_tensor = ()
+    for tensor in old_ls:
+        new_tensor += (torch.reshape(tensor, (-1,1)),)
+
+    # # concatenate the tensors along a new dimension
+    concatenated_t = torch.cat(new_tensor, dim=0)
+    # # flatten the concatenated tensor
+    # Y = torch.flatten(concatenated_t).unsqueeze(0)
+    return torch.reshape(concatenated_t, (1,-1))
+
+
+
 
 class CKA:
     def __init__(self,
@@ -167,6 +204,7 @@ class CKA:
             self.model1_features = {}
             self.model2_features = {}
 
+        
             batch_x = batch_x.float().to(self.device)
             batch_y = batch_y.float().to(self.device)
 
@@ -176,36 +214,122 @@ class CKA:
             # decoder input
             dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float()
             dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float().to(self.device)
+            
+
+            
+            batch_x2 = batch_x2.float().to(self.device)
+            batch_y2 = batch_y2.float().to(self.device)
+
+            batch_x_mark2 = batch_x_mark2.float().to(self.device)
+            batch_y_mark2 = batch_y_mark2.float().to(self.device)
+
+            # decoder input
+            dec_inp2 = torch.zeros_like(batch_y2[:, -self.args.pred_len:, :]).float()
+            dec_inp2 = torch.cat([batch_y2[:, :self.args.label_len, :], dec_inp2], dim=1).float().to(self.device)
+            
+            
+            
+            
+            
+            
             # encoder - decoder
             if self.args.use_amp:
                 with torch.cuda.amp.autocast():
                     if self.args.output_attention:
                         outputs1 = self.model1(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
-                        outputs2 = self.model2(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
+                        outputs2 = self.model2(batch_x2, batch_x_mark2, dec_inp2, batch_y_mark2)[0]
                     else:
                         outputs1 = self.model1(batch_x, batch_x_mark, dec_inp, batch_y_mark)
-                        outputs2 = self.model2(batch_x, batch_x_mark, dec_inp, batch_y_mark)
+                        outputs2 = self.model2(batch_x2, batch_x_mark2, dec_inp2, batch_y_mark2)
             else:
                 if self.args.output_attention:
                     outputs1 = self.model1(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
-                    outputs2 = self.model2(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
+                    outputs2 = self.model2(batch_x2, batch_x_mark2, dec_inp2, batch_y_mark2)[0]
 
                 else:
                     outputs1 = self.model1(batch_x, batch_x_mark, dec_inp, batch_y_mark)     
-                    outputs2 = self.model2(batch_x, batch_x_mark, dec_inp, batch_y_mark)     
+                    outputs2 = self.model2(batch_x2, batch_x_mark2, dec_inp2, batch_y_mark2)     
        
     
 #             _ = self.model1(x1.to(self.device))
 #             _ = self.model2(x2.to(self.device))
+            
+    
 
             for i, (name1, feat1) in enumerate(self.model1_features.items()):
-                X = feat1.flatten(1)
+#                 print("np.shape(feat1)",np.shape(feat1))
+#                 print("np.shape(feat1)",np.shape(feat1.cpu()))
+
+#                 X = feat1.flatten(1)
+    
+                try:
+                    X = feat1.flatten(1)
+                except:
+                    flat_list = flatten_tuple(feat1)
+                    X = remove_none(flat_list)
+
+                    try:
+                        X = torch.stack(X)
+                        X = torch.reshape(X, (1,-1))
+                        X = X.flatten(1)
+                    except:
+                        X = ls_of_tensors_to_1_dim_tensor(X)
+    
+    
+    
                 K = X @ X.t()
                 K.fill_diagonal_(0.0)
                 self.hsic_matrix[i, :, 0] += self._HSIC(K, K) / num_batches
 
                 for j, (name2, feat2) in enumerate(self.model2_features.items()):
-                    Y = feat2.flatten(1)
+                    print("j==",j,"i==",i)
+                    print(feat2)
+                    try:
+                        Y = feat2.flatten(1)
+                    except:
+                        flat_list = flatten_tuple(feat2)
+                        Y = remove_none(flat_list)
+                        if j ==75:
+                            print("Y[0].size()",Y[0].size())
+                            print("Y[1].size()",Y[1].size())
+                        try:
+                            Y = torch.stack(Y)
+                            
+                            Y = torch.reshape(Y, (1,-1))
+                            Y = Y.flatten(1)
+                        except:
+                            Y = ls_of_tensors_to_1_dim_tensor(Y)
+
+#                         print(Y)
+# #                         print(Y[0])
+
+                        
+
+                        
+#                     except AttributeError:
+#                         try:
+#                             # concatenate the tensors along a new dimension
+#                             concatenated_t = torch.cat(feat2, dim=0)
+#                             # flatten the concatenated tensor
+#                             Y = torch.flatten(concatenated_t).unsqueeze(0)
+#                         except TypeError:
+
+#                             new_feat2 = ()
+#                             for tensor in feat2:
+#                                 if tensor is None:
+#                                     pass
+#                                 else:
+#                                     new_feat2 += (tensor,)
+#                             feat2 = new_feat2
+#                             # concatenate the tensors along a new dimension
+#                             concatenated_t = torch.cat(feat2, dim=0)
+#                             # flatten the concatenated tensor
+#                             Y = torch.flatten(concatenated_t).unsqueeze(0)
+
+        
+                    print(Y)
+                    print(Y.size())
+        
                     L = Y @ Y.t()
                     L.fill_diagonal_(0)
                     assert K.shape == L.shape, f"Feature shape mistach! {K.shape}, {L.shape}"
@@ -254,3 +378,5 @@ class CKA:
             plt.savefig(save_path, dpi=300)
 
         plt.show()
+        
+        
