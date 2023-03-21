@@ -11,6 +11,7 @@ from .utils import add_colorbar
 
 class CKA:
     def __init__(self,
+                 args,
                  model1: nn.Module,
                  model2: nn.Module,
                  model1_name: str = None,
@@ -28,7 +29,8 @@ class CKA:
         :param model2_layers: (List) List of layers to extract features from
         :param device: Device to run the model
         """
-
+        self.args = args
+        
         self.model1 = model1
         self.model2 = model2
 
